@@ -10,7 +10,7 @@ require (
 	github.com/klauspost/compress v1.19.2
 	github.com/miekg/dns v1.1.72
 	github.com/sagernet/cors v1.2.1
-	github.com/sagernet/sing v0.9.1-0.20260904133552-ffcabb706b1c
+	github.com/sagernet/sing v0.9.3-0.20260906082413-0113c392f609
 	github.com/sagernet/sing-anytls v0.0.0-20260904135308-cec2d74334be
 	github.com/sagernet/sing-box v1.15.0-alpha.2
 	github.com/sagernet/sing-mux v0.3.7-0.20260905054442-91d1502591ce
@@ -40,9 +40,8 @@ tool (
 )
 
 replace (
+	github.com/sagernet/sing-box => github.com/xchacha20-poly1305/sing-box v1.14.1-0.20260906094653-777ee1534145
 	github.com/sagernet/sing-vmess => github.com/xchacha20-poly1305/sing-vmess v0.2.9-0.20260730020509-f81302d3921a
-
-// github.com/sagernet/sing-box => ../../sing-box
 )
 
 // cmd
