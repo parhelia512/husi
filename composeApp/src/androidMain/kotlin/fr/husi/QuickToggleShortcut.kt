@@ -37,6 +37,7 @@ import fr.husi.lib.R
 import fr.husi.repository.resolveRepository
 import fr.husi.resources.Res
 import fr.husi.resources.quick_toggle
+import fr.husi.ui.tools.IconPackManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -72,7 +73,9 @@ class QuickToggleShortcut : Activity() {
                             ).setAction(Intent.ACTION_MAIN),
                         )
                         .setIcon(
-                            IconCompat.createWithResource(
+                            IconPackManager.loadIconBitmap(this, "ic_shortcut_toggle.png")?.let {
+                                IconCompat.createWithBitmap(it)
+                            } ?: IconCompat.createWithResource(
                                 this,
                                 R.drawable.ic_qu_shadowsocks_launcher,
                             ),

@@ -157,6 +157,9 @@ import fr.husi.resources.ecg
 import fr.husi.resources.group_order_by_delay
 import fr.husi.resources.group_order_by_name
 import fr.husi.resources.group_order_origin
+import fr.husi.resources.layout_columns
+import fr.husi.resources.layout_dual_column
+import fr.husi.resources.layout_single_column
 import fr.husi.resources.menu
 import fr.husi.resources.more
 import fr.husi.resources.more_vert
@@ -281,6 +284,7 @@ fun ConfigurationScreen(
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showConnectionTestMenu by remember { mutableStateOf(false) }
     var showOrderMenu by remember { mutableStateOf(false) }
+    var showLayoutMenu by remember { mutableStateOf(false) }
     val searchBarState = rememberSearchBarState()
     val searchTextFieldState = vm.searchTextFieldState
     val searchInputField: @Composable () -> Unit = {
@@ -529,6 +533,10 @@ fun ConfigurationScreen(
                                         showOverflowMenu = false
                                         showOrderMenu = true
                                     }
+                                    ExpandableDropdownMenuItem(stringResource(Res.string.layout_columns)) {
+                                        showOverflowMenu = false
+                                        showLayoutMenu = true
+                                    }
                                 }
                                 DropdownMenu(
                                     expanded = showConnectionTestMenu,
@@ -601,6 +609,31 @@ fun ConfigurationScreen(
                                             },
                                             text = { Text(text = option) },
                                             shapes = MenuDefaults.itemShape(i, orders.size),
+                                        )
+                                    }
+                                }
+                                DropdownMenu(
+                                    expanded = showLayoutMenu,
+                                    onDismissRequest = { showLayoutMenu = false },
+                                    containerColor = MenuDefaults.groupStandardContainerColor,
+                                    shape = MenuDefaults.standaloneGroupShape,
+                                ) {
+                                    val currentColumns by DataStore.configurationStore
+                                        .intFlow(Key.PROFILE_LAYOUT_COLUMNS, 1)
+                                        .collectAsStateWithLifecycle(1)
+                                    val layouts = listOf(
+                                        stringResource(Res.string.layout_single_column),
+                                        stringResource(Res.string.layout_dual_column),
+                                    )
+                                    layouts.forEachIndexed { i, option ->
+                                        DropdownMenuItem(
+                                            selected = currentColumns == i + 1,
+                                            onClick = {
+                                                showLayoutMenu = false
+                                                DataStore.profileLayoutColumns = i + 1
+                                            },
+                                            text = { Text(text = option) },
+                                            shapes = MenuDefaults.itemShape(i, layouts.size),
                                         )
                                     }
                                 }

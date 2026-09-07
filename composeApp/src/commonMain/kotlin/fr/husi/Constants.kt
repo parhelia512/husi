@@ -132,6 +132,9 @@ object Key {
 
     const val RULES_FIRST_CREATE = "rulesFirstCreate"
 
+    const val PROFILE_LAYOUT_COLUMNS = "profileLayoutColumns"
+    const val CUSTOM_ICON_PACK = "customIconPack"
+
 }
 
 object AlertType {

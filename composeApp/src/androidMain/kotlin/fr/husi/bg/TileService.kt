@@ -11,6 +11,7 @@ import fr.husi.database.SagerDatabase
 import fr.husi.ktx.onIoDispatcher
 import fr.husi.repository.resolveRepository
 import fr.husi.resources.*
+import fr.husi.ui.tools.IconPackManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -19,10 +20,15 @@ import android.service.quicksettings.TileService as BaseTileService
 
 @RequiresApi(24)
 class TileService : BaseTileService() {
-    private val iconRest by lazy { Icon.createWithResource(this, R.drawable.ic_service_rest) }
-    private val iconConnected by lazy {
-        Icon.createWithResource(this, R.drawable.ic_service_active)
-    }
+    private fun loadIconRest(): Icon =
+        IconPackManager.loadIconBitmap(this, "ic_service_rest.png")?.let {
+            Icon.createWithBitmap(it)
+        } ?: Icon.createWithResource(this, R.drawable.ic_service_rest)
+
+    private fun loadIconConnected(): Icon =
+        IconPackManager.loadIconBitmap(this, "ic_service_active.png")?.let {
+            Icon.createWithBitmap(it)
+        } ?: Icon.createWithResource(this, R.drawable.ic_service_active)
 
     private val scope = CoroutineScope(Dispatchers.Main.immediate)
 
@@ -45,24 +51,24 @@ class TileService : BaseTileService() {
             label = null
             when (serviceState) {
                 ServiceState.Connecting -> {
-                    icon = iconRest
+                    icon = loadIconRest()
                     state = Tile.STATE_ACTIVE
                 }
 
                 ServiceState.Connected -> {
-                    icon = iconConnected
+                    icon = loadIconConnected()
                     label = profileName
                     state = Tile.STATE_ACTIVE
                 }
 
                 ServiceState.Stopping -> {
-                    icon = iconRest
+                    icon = loadIconRest()
                     state = Tile.STATE_UNAVAILABLE
                 }
 
                 // Stopped
                 else -> {
-                    icon = iconRest
+                    icon = loadIconRest()
                     state = Tile.STATE_INACTIVE
                 }
             }

@@ -793,4 +793,22 @@
     <string name="ipv6" translatable="false">IPv6</string>
     <string name="connected_since">连接时间</string>
     <string name="openconnect_auth_channel">OpenConnect 身份验证</string>
+    <!-- layout -->
+    <string name="layout_columns">布局</string>
+    <string name="layout_single_column">单列</string>
+    <string name="layout_dual_column">双列</string>
+    <!-- icon pack -->
+    <string name="custom_icons">图标</string>
+    <string name="icon_pack_import">导入图标包</string>
+    <string name="icon_pack_reset">恢复默认</string>
+    <string name="icon_pack_import_success">已导入 %1$d 个图标</string>
+    <string name="icon_pack_import_error">导入图标包失败</string>
+    <string name="icon_pack_reset_done">图标已恢复默认</string>
+    <string name="icon_pack_description">导入 ZIP 图标包来自定义磁贴和快捷方式图标。ZIP 应包含以下 PNG 文件：ic_service_active.png、ic_service_rest.png、ic_shortcut_toggle.png、ic_shortcut_scan.png、ic_launcher_foreground.png</string>
+    <string name="custom_icons_android_only">自定义图标包仅支持 Android</string>
+    <string name="icon_target_qs_active">磁贴（活跃）</string>
+    <string name="icon_target_qs_rest">磁贴（空闲）</string>
+    <string name="icon_target_shortcut_toggle">快捷方式：切换</string>
+    <string name="icon_target_shortcut_scan">快捷方式：扫码</string>
+    <string name="icon_target_launcher">启动器图标（预览）</string>
 </resources>

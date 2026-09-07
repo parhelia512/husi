@@ -251,4 +251,6 @@ object DataStore {
 
     var rulesFirstCreate by configurationStore.boolean(Key.RULES_FIRST_CREATE)
 
+    var profileLayoutColumns by configurationStore.int(Key.PROFILE_LAYOUT_COLUMNS) { 1 }
+
 }

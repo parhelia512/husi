@@ -44,6 +44,7 @@ import fr.husi.database.DataStore
 import fr.husi.repository.resolveRepository
 import fr.husi.resources.Res
 import fr.husi.resources.backup
+import fr.husi.resources.custom_icons
 import fr.husi.resources.menu
 import fr.husi.resources.menu_tools
 import fr.husi.resources.ok
@@ -59,7 +60,8 @@ import org.jetbrains.compose.resources.vectorResource
 
 private const val PAGE_NETWORK = 0
 private const val PAGE_BACKUP = 1
-private const val PAGE_DEBUG = 2
+private const val PAGE_ICONS = 2
+private const val PAGE_DEBUG = 3
 
 @Composable
 fun ToolsScreen(
@@ -77,7 +79,7 @@ fun ToolsScreen(
         .collectAsStateWithLifecycle(false)
     val pagerState = rememberPagerState(
         initialPage = PAGE_NETWORK,
-        pageCount = { 2 + if (isExpert) 1 else 0 },
+        pageCount = { 3 + if (isExpert) 1 else 0 },
     )
 
     var bottomVisible by remember { mutableStateOf(true) }
@@ -136,6 +138,15 @@ fun ToolsScreen(
                             },
                             text = { Text(stringResource(Res.string.backup)) },
                         )
+                        Tab(
+                            selected = pagerState.currentPage == PAGE_ICONS,
+                            onClick = {
+                                scope.launch {
+                                    pagerState.animateScrollToPage(PAGE_ICONS)
+                                }
+                            },
+                            text = { Text(stringResource(Res.string.custom_icons)) },
+                        )
                         if (isExpert) Tab(
                             selected = pagerState.currentPage == PAGE_DEBUG,
                             onClick = {
@@ -193,6 +204,20 @@ fun ToolsScreen(
                     )
 
                     PAGE_BACKUP -> BackupScreen(
+                        bottomPadding = bottomPadding,
+                        onVisibleChange = { bottomVisible = it },
+                        showSnackbar = { message ->
+                            scope.launch {
+                                snackbarState.showSnackbar(
+                                    message = message,
+                                    actionLabel = resolveRepository().getString(Res.string.ok),
+                                    duration = SnackbarDuration.Short,
+                                )
+                            }
+                        },
+                    )
+
+                    PAGE_ICONS -> IconsScreen(
                         bottomPadding = bottomPadding,
                         onVisibleChange = { bottomVisible = it },
                         showSnackbar = { message ->
