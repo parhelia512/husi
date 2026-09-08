@@ -1039,7 +1039,6 @@ private fun ProfileGrid(
                         draggedIndex = null
                         dragOffsetY = 0f
                     },
-                    showActions = showActions,
                 )
             }
         }
