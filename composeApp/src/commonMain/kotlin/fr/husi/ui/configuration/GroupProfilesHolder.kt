@@ -976,61 +976,7 @@ private fun ProfileGrid(
                             } else {
                                 Modifier
                             }
-                        )
-                        .pointerInput(profiles) {
-                            detectDragGesturesAfterLongPress(
-                                onDragStart = { _ ->
-                                    draggedIndex = index
-                                    dragOffsetY = 0f
-                                },
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                    dragOffsetY += dragAmount.y
-                                    val from = draggedIndex ?: return@detectDragGesturesAfterLongPress
-                                    val rows =
-                                        (dragOffsetY / itemHeightPx).let { offset ->
-                                            val sign = if (offset > 0) 1 else -1
-                                            val abs = kotlin.math.abs(offset)
-                                            sign * (abs + 0.3f).toInt()
-                                        }
-                                    val to = (from + rows * 2).coerceIn(0, profiles.size - 1)
-                                    if (from != to && to in profiles.indices) {
-                                        val changes = mutableListOf<OrderedItem<ProfileItem>>()
-                                        val step = if (from < to) 1 else -1
-                                        var i = from
-                                        while (i != to) {
-                                            val next = i + step
-                                            changes.add(
-                                                OrderedItem(
-                                                    value = profiles[i],
-                                                    initialIndex = i,
-                                                    newIndex = next,
-                                                ),
-                                            )
-                                            i = next
-                                        }
-                                        changes.add(
-                                            OrderedItem(
-                                                value = profiles[from],
-                                                initialIndex = from,
-                                                newIndex = to,
-                                            ),
-                                        )
-                                        onReorder(changes)
-                                        draggedIndex = to
-                                        dragOffsetY = 0f
-                                    }
-                                },
-                                onDragEnd = {
-                                    draggedIndex = null
-                                    dragOffsetY = 0f
-                                },
-                                onDragCancel = {
-                                    draggedIndex = null
-                                    dragOffsetY = 0f
-                                },
-                            )
-                        },
+                        ),
                     profile = item,
                     select = { onProfileSelect(item.profile.id) },
                     edit = { edit(item) },
@@ -1043,6 +989,56 @@ private fun ProfileGrid(
                     blurAddress = blurAddress,
                     trafficStatistic = trafficStatistic,
                     securityAdvice = securityAdvice,
+                    showActions = showActions,
+                    onDragStart = {
+                        draggedIndex = index
+                        dragOffsetY = 0f
+                    },
+                    onDrag = { dragAmount ->
+                        dragOffsetY += dragAmount
+                        val from = draggedIndex ?: return@CompactProxyCard
+                        val rows =
+                            (dragOffsetY / itemHeightPx).let { offset ->
+                                val sign = if (offset > 0) 1 else -1
+                                val abs = kotlin.math.abs(offset)
+                                sign * (abs + 0.3f).toInt()
+                            }
+                        val to = (from + rows * 2).coerceIn(0, profiles.size - 1)
+                        if (from != to && to in profiles.indices) {
+                            val changes = mutableListOf<OrderedItem<ProfileItem>>()
+                            val step = if (from < to) 1 else -1
+                            var i = from
+                            while (i != to) {
+                                val next = i + step
+                                changes.add(
+                                    OrderedItem(
+                                        value = profiles[i],
+                                        initialIndex = i,
+                                        newIndex = next,
+                                    ),
+                                )
+                                i = next
+                            }
+                            changes.add(
+                                OrderedItem(
+                                    value = profiles[from],
+                                    initialIndex = from,
+                                    newIndex = to,
+                                ),
+                            )
+                            onReorder(changes)
+                            draggedIndex = to
+                            dragOffsetY = 0f
+                        }
+                    },
+                    onDragEnd = {
+                        draggedIndex = null
+                        dragOffsetY = 0f
+                    },
+                    onDragCancel = {
+                        draggedIndex = null
+                        dragOffsetY = 0f
+                    },
                     showActions = showActions,
                 )
             }
@@ -1067,6 +1063,10 @@ private fun CompactProxyCard(
     trafficStatistic: Boolean,
     securityAdvice: Boolean,
     showActions: Boolean = true,
+    onDragStart: () -> Unit = {},
+    onDrag: (Float) -> Unit = {},
+    onDragEnd: () -> Unit = {},
+    onDragCancel: () -> Unit = {},
 ) {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -1141,103 +1141,129 @@ private fun CompactProxyCard(
             CardDefaults.outlinedCardBorder()
         },
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp),
+        Row(
+            modifier = Modifier.fillMaxSize(),
         ) {
-            // Title row: drag handle + name + overflow menu
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+            // Full-height drag handle on the left edge
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .pointerInput(Unit) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { onDragStart() },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                onDrag(dragAmount.y)
+                            },
+                            onDragEnd = { onDragEnd() },
+                            onDragCancel = { onDragCancel() },
+                        )
+                    },
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = vectorResource(Res.drawable.drag_indicator),
-                    contentDescription = "Drag to reorder",
+                    contentDescription = stringResource(Res.string.menu_configuration),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp),
                 )
+            }
 
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f),
-                )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(8.dp),
+            ) {
+                // Title row: two-line name + overflow menu
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        minLines = 2,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
 
-                if (showActions) {
-                    Box {
-                        SimpleIconButton(
-                            imageVector = vectorResource(Res.drawable.more_vert),
-                            contentDescription = stringResource(Res.string.menu),
-                            modifier = Modifier.size(28.dp),
-                            onClick = { showOverflowMenu = true },
-                        )
-                        DropdownMenu(
-                            expanded = showOverflowMenu,
-                            onDismissRequest = { showOverflowMenu = false },
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(Res.string.edit)) },
-                                onClick = {
-                                    showOverflowMenu = false
-                                    edit()
-                                },
+                    if (showActions) {
+                        Box {
+                            SimpleIconButton(
+                                imageVector = vectorResource(Res.drawable.more_vert),
+                                contentDescription = stringResource(Res.string.menu),
+                                modifier = Modifier.size(28.dp),
+                                onClick = { showOverflowMenu = true },
                             )
-                            DropdownMenuItem(
-                                text = { Text(shareMenuLabel) },
-                                onClick = {
-                                    showOverflowMenu = false
-                                    when (validateResult) {
-                                        is ValidateResult.Insecure,
-                                        is ValidateResult.Deprecated -> showSecurityAlert = true
-                                        is ValidateResult.Secure -> showShareSheet = true
-                                    }
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(Res.string.delete)) },
-                                onClick = {
-                                    showOverflowMenu = false
-                                    delete()
-                                },
-                            )
+                            DropdownMenu(
+                                expanded = showOverflowMenu,
+                                onDismissRequest = { showOverflowMenu = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(Res.string.edit)) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        edit()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(shareMenuLabel) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        when (validateResult) {
+                                            is ValidateResult.Insecure,
+                                            is ValidateResult.Deprecated -> showSecurityAlert = true
+                                            is ValidateResult.Secure -> showShareSheet = true
+                                        }
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(Res.string.delete)) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        delete()
+                                    },
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            Text(
-                text = entity.displayType(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.outline,
-                maxLines = 1,
-            )
+                Text(
+                    text = entity.displayType(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    maxLines = 1,
+                )
 
-            // Traffic row (only when traffic statistics enabled and there is traffic)
-            if (hasTraffic && trafficStatistic && entity.status > ProxyEntity.STATUS_INITIAL) {
-                trafficText?.let {
+                // Traffic row (only when traffic statistics enabled and there is traffic)
+                if (hasTraffic && trafficStatistic && entity.status > ProxyEntity.STATUS_INITIAL) {
+                    trafficText?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                }
+
+                if (statusText.isNotEmpty()) {
+                    val errorText = entity.error?.blankAsNull()
                     Text(
-                        text = it,
+                        text = statusText,
+                        modifier = Modifier.clickable {
+                            errorText?.let(showErrorAlert)
+                        },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = statusColor,
                         maxLines = 1,
                     )
                 }
-            }
-
-            if (statusText.isNotEmpty()) {
-                val errorText = entity.error?.blankAsNull()
-                Text(
-                    text = statusText,
-                    modifier = Modifier.clickable {
-                        errorText?.let(showErrorAlert)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = statusColor,
-                    maxLines = 1,
-                )
             }
         }
     }
