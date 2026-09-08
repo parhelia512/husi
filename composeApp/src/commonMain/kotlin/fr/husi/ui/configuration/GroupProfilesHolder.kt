@@ -117,6 +117,7 @@ import fr.husi.resources.fingerprint
 import fr.husi.resources.insecure
 import fr.husi.resources.internal_link
 import fr.husi.resources.link
+import fr.husi.resources.menu
 import fr.husi.resources.menu_configuration
 import fr.husi.resources.more_vert
 import fr.husi.resources.ok
