@@ -25,6 +25,8 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -116,6 +118,7 @@ import fr.husi.resources.insecure
 import fr.husi.resources.internal_link
 import fr.husi.resources.link
 import fr.husi.resources.menu_configuration
+import fr.husi.resources.more_vert
 import fr.husi.resources.ok
 import fr.husi.resources.outbound
 import fr.husi.resources.qr_code
@@ -1075,9 +1078,18 @@ private fun CompactProxyCard(
         else -> bean.displayName()
     }
 
+    val hasTraffic = entity.tx + entity.rx > 0L
+    val trafficText = hasTraffic.takeIf { trafficStatistic }?.let {
+        stringResource(
+            Res.string.traffic,
+            Libcore.formatBytes(entity.tx),
+            Libcore.formatBytes(entity.rx),
+        )
+    }
+
     val (statusText, statusColor) = when (entity.status) {
         in Int.MIN_VALUE..ProxyEntity.STATUS_INITIAL -> {
-            "" to MaterialTheme.colorScheme.onSurfaceVariant
+            trafficText.orEmpty() to MaterialTheme.colorScheme.onSurfaceVariant
         }
 
         ProxyEntity.STATUS_AVAILABLE -> {
@@ -1104,11 +1116,18 @@ private fun CompactProxyCard(
 
     var showShareSheet by remember { mutableStateOf(false) }
     var showSecurityAlert by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
     val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val validateResult = if (showActions && securityAdvice) {
         bean.isInsecure()
     } else {
         ValidateResult.Secure.Continue
+    }
+
+    val shareMenuLabel: String = when (validateResult) {
+        is ValidateResult.Insecure -> stringResource(Res.string.insecure)
+        is ValidateResult.Deprecated -> stringResource(Res.string.deprecated)
+        is ValidateResult.Secure -> stringResource(Res.string.share)
     }
 
     OutlinedCard(
@@ -1126,10 +1145,18 @@ private fun CompactProxyCard(
                 .fillMaxSize()
                 .padding(8.dp),
         ) {
+            // Title row: drag handle + name + overflow menu
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                Icon(
+                    imageVector = vectorResource(Res.drawable.drag_indicator),
+                    contentDescription = "Drag to reorder",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+
                 Text(
                     text = name,
                     style = MaterialTheme.typography.titleSmall,
@@ -1139,260 +1166,44 @@ private fun CompactProxyCard(
                 )
 
                 if (showActions) {
-                    val shareIcon: DrawableResource
-                    val shareBackground: Color
-                    val shareTint: Color
-                    when (validateResult) {
-                        is ValidateResult.Insecure -> {
-                            shareIcon = Res.drawable.warning
-                            shareBackground = Color.Red
-                            shareTint = Color.White
-                        }
-
-                        is ValidateResult.Deprecated -> {
-                            shareIcon = Res.drawable.warning
-                            shareBackground = Color.Yellow
-                            shareTint = Color.Gray
-                        }
-
-                        is ValidateResult.Secure -> {
-                            shareIcon = Res.drawable.share
-                            shareBackground = Color.Transparent
-                            shareTint = MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    }
-
                     Box {
-                        IconButton(
-                            onClick = {
-                                when (validateResult) {
-                                    is ValidateResult.Insecure, is ValidateResult.Deprecated -> {
-                                        showSecurityAlert = true
-                                    }
-
-                                    is ValidateResult.Secure -> {
-                                        showShareSheet = true
-                                    }
-                                }
-                            },
+                        SimpleIconButton(
+                            imageVector = vectorResource(Res.drawable.more_vert),
+                            contentDescription = stringResource(Res.string.menu),
                             modifier = Modifier.size(28.dp),
+                            onClick = { showOverflowMenu = true },
+                        )
+                        DropdownMenu(
+                            expanded = showOverflowMenu,
+                            onDismissRequest = { showOverflowMenu = false },
                         ) {
-                            Icon(
-                                imageVector = vectorResource(shareIcon),
-                                contentDescription = null,
-                                tint = shareTint,
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .background(shareBackground, shape = CircleShape),
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.edit)) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    edit()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(shareMenuLabel) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    when (validateResult) {
+                                        is ValidateResult.Insecure,
+                                        is ValidateResult.Deprecated -> showSecurityAlert = true
+                                        is ValidateResult.Secure -> showShareSheet = true
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.delete)) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    delete()
+                                },
                             )
                         }
-
-                        if (showShareSheet) {
-                            val canNotShareOutbound = entity.type == ProxyEntity.TYPE_CHAIN ||
-                                    entity.type == ProxyEntity.TYPE_PROXY_SET ||
-                                    entity.mustUsePlugin() ||
-                                    (bean as? ConfigBean)?.type == ConfigBean.TYPE_CONFIG
-
-                            ModalBottomSheet(
-                                onDismissRequest = { showShareSheet = false },
-                                sheetState = shareSheetState,
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                ) {
-                                    if (entity.haveLink()) {
-                                        SheetSectionTitle(
-                                            text = stringResource(Res.string.share_qr_nfc),
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = vectorResource(Res.drawable.qr_code),
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                            },
-                                        )
-                                        if (entity.haveStandardLink()) {
-                                            SheetActionRow(
-                                                text = stringResource(Res.string.standard),
-                                                leadingIcon = {
-                                                    Icon(
-                                                        imageVector = vectorResource(Res.drawable.send),
-                                                        contentDescription = null,
-                                                    )
-                                                },
-                                                onClick = {
-                                                    showQR(entity.toStdLink())
-                                                    showShareSheet = false
-                                                },
-                                            )
-                                        }
-                                        SheetActionRow(
-                                            text = stringResource(Res.string.internal_link),
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = vectorResource(Res.drawable.link),
-                                                    contentDescription = null,
-                                                )
-                                            },
-                                            onClick = {
-                                                showQR(bean.toUniversalLink())
-                                                showShareSheet = false
-                                            },
-                                        )
-                                        HorizontalDivider()
-                                        SheetSectionTitle(
-                                            text = stringResource(Res.string.action_export_clipboard),
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = vectorResource(Res.drawable.share),
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                            },
-                                        )
-                                        if (entity.haveStandardLink()) {
-                                            SheetActionRow(
-                                                text = stringResource(Res.string.standard),
-                                                leadingIcon = {
-                                                    Icon(
-                                                        imageVector = vectorResource(Res.drawable.content_copy),
-                                                        contentDescription = null,
-                                                    )
-                                                },
-                                                onClick = {
-                                                    scope.launch {
-                                                        clipboard.setPlainText(entity.toStdLink())
-                                                        onCopySuccess()
-                                                    }
-                                                    showShareSheet = false
-                                                },
-                                            )
-                                        }
-                                        SheetActionRow(
-                                            text = stringResource(Res.string.internal_link),
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = vectorResource(Res.drawable.fingerprint),
-                                                    contentDescription = null,
-                                                )
-                                            },
-                                            onClick = {
-                                                scope.launch {
-                                                    clipboard.setPlainText(bean.toUniversalLink())
-                                                    onCopySuccess()
-                                                }
-                                                showShareSheet = false
-                                            },
-                                        )
-                                    }
-                                    HorizontalDivider()
-                                    SheetSectionTitle(
-                                        text = stringResource(Res.string.menu_configuration),
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = vectorResource(Res.drawable.settings),
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        },
-                                    )
-                                    SheetActionRow(
-                                        text = stringResource(Res.string.action_export_clipboard),
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = vectorResource(Res.drawable.copy_all),
-                                                contentDescription = null,
-                                            )
-                                        },
-                                        onClick = {
-                                            scope.launch {
-                                                runCatching {
-                                                    clipboard.setPlainText(entity.exportConfig().first)
-                                                }.onSuccess {
-                                                    onCopySuccess()
-                                                }.onFailure { e ->
-                                                    showErrorAlert(e.readableMessage)
-                                                }
-                                            }
-                                            showShareSheet = false
-                                        },
-                                    )
-                                    SheetActionRow(
-                                        text = stringResource(Res.string.action_export_file),
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = vectorResource(Res.drawable.file_export),
-                                                contentDescription = null,
-                                            )
-                                        },
-                                        onClick = {
-                                            runCatching {
-                                                val data = entity.exportConfig()
-                                                exportToFile(data.second, data.first)
-                                            }.onFailure { e ->
-                                                showErrorAlert(e.readableMessage)
-                                            }
-                                            showShareSheet = false
-                                        },
-                                    )
-
-                                    if (!canNotShareOutbound) {
-                                        HorizontalDivider()
-                                        SheetSectionTitle(
-                                            text = stringResource(Res.string.outbound),
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = vectorResource(Res.drawable.arrow_outward),
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                            },
-                                        )
-                                        SheetActionRow(
-                                            text = stringResource(Res.string.action_export_clipboard),
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = vectorResource(Res.drawable.copy_all),
-                                                    contentDescription = null,
-                                                )
-                                            },
-                                            onClick = {
-                                                scope.launch {
-                                                    clipboard.setPlainText(entity.exportOutbound().first)
-                                                    onCopySuccess()
-                                                }
-                                                showShareSheet = false
-                                            },
-                                        )
-                                        SheetActionRow(
-                                            text = stringResource(Res.string.action_export_file),
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = vectorResource(Res.drawable.file_export),
-                                                    contentDescription = null,
-                                                )
-                                            },
-                                            onClick = {
-                                                val data = entity.exportOutbound()
-                                                exportToFile(data.second, data.first)
-                                                showShareSheet = false
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
-
-                    SimpleIconButton(
-                        imageVector = vectorResource(Res.drawable.delete),
-                        contentDescription = stringResource(Res.string.delete),
-                        modifier = Modifier.size(28.dp),
-                        onClick = delete,
-                    )
                 }
             }
 
@@ -1402,6 +1213,18 @@ private fun CompactProxyCard(
                 color = MaterialTheme.colorScheme.outline,
                 maxLines = 1,
             )
+
+            // Traffic row (only when traffic statistics enabled and there is traffic)
+            if (hasTraffic && trafficStatistic && entity.status > ProxyEntity.STATUS_INITIAL) {
+                trafficText?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+            }
 
             if (statusText.isNotEmpty()) {
                 val errorText = entity.error?.blankAsNull()
@@ -1414,6 +1237,205 @@ private fun CompactProxyCard(
                     color = statusColor,
                     maxLines = 1,
                 )
+            }
+        }
+    }
+
+    if (showActions && showShareSheet) {
+        val canNotShareOutbound = entity.type == ProxyEntity.TYPE_CHAIN ||
+            entity.type == ProxyEntity.TYPE_PROXY_SET ||
+            entity.mustUsePlugin() ||
+            (bean as? ConfigBean)?.type == ConfigBean.TYPE_CONFIG
+
+        ModalBottomSheet(
+            onDismissRequest = { showShareSheet = false },
+            sheetState = shareSheetState,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (entity.haveLink()) {
+                    SheetSectionTitle(
+                        text = stringResource(Res.string.share_qr_nfc),
+                        leadingIcon = {
+                            Icon(
+                                imageVector = vectorResource(Res.drawable.qr_code),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                    )
+                    if (entity.haveStandardLink()) {
+                        SheetActionRow(
+                            text = stringResource(Res.string.standard),
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = vectorResource(Res.drawable.send),
+                                    contentDescription = null,
+                                )
+                            },
+                            onClick = {
+                                showQR(entity.toStdLink())
+                                showShareSheet = false
+                            },
+                        )
+                    }
+                    SheetActionRow(
+                        text = stringResource(Res.string.internal_link),
+                        leadingIcon = {
+                            Icon(
+                                imageVector = vectorResource(Res.drawable.link),
+                                contentDescription = null,
+                            )
+                        },
+                        onClick = {
+                            showQR(bean.toUniversalLink())
+                            showShareSheet = false
+                        },
+                    )
+                    HorizontalDivider()
+                    SheetSectionTitle(
+                        text = stringResource(Res.string.action_export_clipboard),
+                        leadingIcon = {
+                            Icon(
+                                imageVector = vectorResource(Res.drawable.share),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                    )
+                    if (entity.haveStandardLink()) {
+                        SheetActionRow(
+                            text = stringResource(Res.string.standard),
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = vectorResource(Res.drawable.content_copy),
+                                    contentDescription = null,
+                                )
+                            },
+                            onClick = {
+                                scope.launch {
+                                    clipboard.setPlainText(entity.toStdLink())
+                                    onCopySuccess()
+                                }
+                                showShareSheet = false
+                            },
+                        )
+                    }
+                    SheetActionRow(
+                        text = stringResource(Res.string.internal_link),
+                        leadingIcon = {
+                            Icon(
+                                imageVector = vectorResource(Res.drawable.fingerprint),
+                                contentDescription = null,
+                            )
+                        },
+                        onClick = {
+                            scope.launch {
+                                clipboard.setPlainText(bean.toUniversalLink())
+                                onCopySuccess()
+                            }
+                            showShareSheet = false
+                        },
+                    )
+                }
+                HorizontalDivider()
+                SheetSectionTitle(
+                    text = stringResource(Res.string.menu_configuration),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = vectorResource(Res.drawable.settings),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                )
+                SheetActionRow(
+                    text = stringResource(Res.string.action_export_clipboard),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = vectorResource(Res.drawable.copy_all),
+                            contentDescription = null,
+                        )
+                    },
+                    onClick = {
+                        scope.launch {
+                            runCatching {
+                                clipboard.setPlainText(entity.exportConfig().first)
+                            }.onSuccess {
+                                onCopySuccess()
+                            }.onFailure { e ->
+                                showErrorAlert(e.readableMessage)
+                            }
+                        }
+                        showShareSheet = false
+                    },
+                )
+                SheetActionRow(
+                    text = stringResource(Res.string.action_export_file),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = vectorResource(Res.drawable.file_export),
+                            contentDescription = null,
+                        )
+                    },
+                    onClick = {
+                        runCatching {
+                            val data = entity.exportConfig()
+                            exportToFile(data.second, data.first)
+                        }.onFailure { e ->
+                            showErrorAlert(e.readableMessage)
+                        }
+                        showShareSheet = false
+                    },
+                )
+
+                if (!canNotShareOutbound) {
+                    HorizontalDivider()
+                    SheetSectionTitle(
+                        text = stringResource(Res.string.outbound),
+                        leadingIcon = {
+                            Icon(
+                                imageVector = vectorResource(Res.drawable.arrow_outward),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                    )
+                    SheetActionRow(
+                        text = stringResource(Res.string.action_export_clipboard),
+                        leadingIcon = {
+                            Icon(
+                                imageVector = vectorResource(Res.drawable.copy_all),
+                                contentDescription = null,
+                            )
+                        },
+                        onClick = {
+                            scope.launch {
+                                clipboard.setPlainText(entity.exportOutbound().first)
+                                onCopySuccess()
+                            }
+                            showShareSheet = false
+                        },
+                    )
+                    SheetActionRow(
+                        text = stringResource(Res.string.action_export_file),
+                        leadingIcon = {
+                            Icon(
+                                imageVector = vectorResource(Res.drawable.file_export),
+                                contentDescription = null,
+                            )
+                        },
+                        onClick = {
+                            val data = entity.exportOutbound()
+                            exportToFile(data.second, data.first)
+                            showShareSheet = false
+                        },
+                    )
+                }
             }
         }
     }
