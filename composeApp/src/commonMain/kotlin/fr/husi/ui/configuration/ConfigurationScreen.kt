@@ -619,7 +619,7 @@ fun ConfigurationScreen(
                                     shape = MenuDefaults.standaloneGroupShape,
                                 ) {
                                     val currentColumns by DataStore.configurationStore
-                                        .intFlow(Key.PROFILE_LAYOUT_COLUMNS, 1)
+                                        .intFlow(fr.husi.Key.PROFILE_LAYOUT_COLUMNS, 1)
                                         .collectAsStateWithLifecycle(1)
                                     val layouts = listOf(
                                         stringResource(Res.string.layout_single_column),

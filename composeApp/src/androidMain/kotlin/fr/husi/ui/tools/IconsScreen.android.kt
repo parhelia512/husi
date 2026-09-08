@@ -42,12 +42,15 @@ import androidx.lifecycle.lifecycleScope
 import fr.husi.compose.TextButton
 import fr.husi.compose.material3.Button
 import fr.husi.compose.material3.Icon
-import fr.husi.compose.material3.OutlinedButton
 import fr.husi.compose.material3.Text
 import fr.husi.ktx.Logs
 import fr.husi.ktx.readableMessage
+import fr.husi.repository.resolveRepository
 import fr.husi.resources.Res
 import fr.husi.resources.cancel
+import fr.husi.resources.delete
+import fr.husi.resources.error
+import fr.husi.resources.share
 import fr.husi.resources.delete
 import fr.husi.resources.error
 import fr.husi.resources.error_title
@@ -65,11 +68,14 @@ import fr.husi.resources.icon_target_shortcut_toggle
 import fr.husi.resources.ok
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
+import io.github.vinceglb.filekit.name
+import io.github.vinceglb.filekit.readBytes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.vectorResource
 import java.io.File
 
 @Composable
@@ -89,11 +95,14 @@ actual fun IconsScreen(
         type = FileKitType.File(extensions = listOf("zip")),
     ) { file ->
         if (file == null) return@rememberFilePickerLauncher
-        val filePath = file.path ?: return@rememberFilePickerLauncher
         lifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val uri = Uri.fromFile(File(filePath))
+                val bytes = file.readBytes()
+                val tempFile = File(context.cacheDir, "icon_pack_import.zip")
+                tempFile.writeBytes(bytes)
+                val uri = Uri.fromFile(tempFile)
                 val result = IconPackManager.importFromZip(context, uri)
+                tempFile.delete()
                 result.fold(
                     onSuccess = { importResult ->
                         withContext(Dispatchers.Main) {
@@ -147,7 +156,6 @@ actual fun IconsScreen(
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
     ) {
-        // Description
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -161,7 +169,6 @@ actual fun IconsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Action buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -171,9 +178,7 @@ actual fun IconsScreen(
                 modifier = Modifier.weight(1f),
             ) {
                 Icon(
-                    imageVector = org.jetbrains.compose.resources.vectorResource(
-                        fr.husi.resources.Res.drawable.file_export,
-                    ),
+                    imageVector = vectorResource(Res.drawable.share),
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                 )
@@ -181,14 +186,12 @@ actual fun IconsScreen(
                 Text(stringResource(Res.string.icon_pack_import))
             }
 
-            OutlinedButton(
+            androidx.compose.material3.OutlinedButton(
                 onClick = { showResetDialog = true },
                 modifier = Modifier.weight(1f),
             ) {
                 Icon(
-                    imageVector = org.jetbrains.compose.resources.vectorResource(
-                        fr.husi.resources.Res.drawable.delete,
-                    ),
+                    imageVector = vectorResource(Res.drawable.delete),
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                 )
@@ -199,7 +202,6 @@ actual fun IconsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Icon preview grid
         Text(
             text = "Current Icons",
             style = MaterialTheme.typography.titleMedium,
@@ -233,7 +235,7 @@ actual fun IconsScreen(
         confirmButton = {
             TextButton(stringResource(Res.string.ok)) { errorDialog = null }
         },
-        icon = { Icon(org.jetbrains.compose.resources.vectorResource(Res.drawable.error), null) },
+        icon = { Icon(vectorResource(Res.drawable.error), null) },
         title = { Text(stringResource(Res.string.error_title)) },
         text = { Text(errorDialog!!) },
     )
@@ -245,7 +247,9 @@ actual fun IconsScreen(
                 showResetDialog = false
                 IconPackManager.resetIcons(context)
                 refreshKey++
-                showSnackbar(getString(Res.string.icon_pack_reset_done))
+                lifecycleOwner.lifecycleScope.launch {
+                    showSnackbar(getString(Res.string.icon_pack_reset_done))
+                }
             }
         },
         dismissButton = {
